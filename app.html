@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SailMath - calculator</title>
+<style>
+  body { font-family: system-ui, sans-serif; background: #0d1a24; color: #e6f0f5; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+  main { max-width: 720px; padding: 32px 20px 48px; width: 100%; box-sizing: border-box; }
+  h1 { font-size: 1.9rem; margin: 0 0 4px; }
+  p.sub { color: #a3bfd0; margin: 0 0 20px; }
+  .card { background: #142836; border: 1px solid #26455c; border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 18px; }
+  label { display: block; color: #8fb2c6; font-size: 0.82rem; margin-bottom: 4px; }
+  input, select { width: 100%; box-sizing: border-box; background: #0d1a24; border: 1px solid #2e4f68; color: #e6f0f5; border-radius: 8px; padding: 9px 10px; font-size: 0.95rem; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+  .presets button { background: #1b3446; color: #c9dde9; border: 1px solid #2e4f68; border-radius: 999px; padding: 7px 14px; font-size: 0.85rem; cursor: pointer; }
+  .presets button:hover { background: #25465e; }
+  .out { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .metric { background: #0d1a24; border: 1px solid #26455c; border-radius: 10px; padding: 12px 14px; }
+  .metric .v { font-size: 1.35rem; font-weight: 700; color: #74cde2; }
+  .metric .k { color: #8fb2c6; font-size: 0.78rem; margin-top: 2px; }
+  .note { color: #7ea4b6; font-size: 0.82rem; line-height: 1.5; margin-top: 10px; }
+  a.back { color: #74cde2; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<main>
+  <h1>&#9973; SailMath</h1>
+  <p class="sub">Boat and anchoring calculator. Enter your hull; get honest numbers.</p>
+  <div class="presets">
+    <button data-p="daysailor">25ft daysailor</button>
+    <button data-p="cruiser">34ft cruiser</button>
+    <button data-p="racer">36ft racer-cruiser</button>
+    <button data-p="heavy">42ft heavy cruiser</button>
+  </div>
+  <div class="card">
+    <div class="grid">
+      <div><label>Waterline length LWL (ft)</label><input id="lwlFt" type="number" value="30" min="12" step="0.5"></div>
+      <div><label>Overall length LOA (ft)</label><input id="loaFt" type="number" value="34" min="14" step="0.5"></div>
+      <div><label>Beam (ft)</label><input id="beamFt" type="number" value="11" min="5" step="0.25"></div>
+      <div><label>Displacement (lb)</label><input id="dispLb" type="number" value="12000" min="1000"></div>
+      <div><label>Sail area (sq ft)</label><input id="sailAreaFt2" type="number" value="600" min="100"></div>
+      <div><label>Passage distance (nm)</label><input id="nm" type="number" value="300" min="10"></div>
+      <div><label>Sailing hours per day</label><input id="hoursPerDay" type="number" value="24" min="1"></div>
+      <div><label>Anchor depth (ft)</label><input id="depthFt" type="number" value="15" min="3"></div>
+      <div><label>Freeboard at bow (ft)</label><input id="freeboardFt" type="number" value="5" min="1"></div>
+      <div><label>Scope</label><select id="scope"><option value="5">5:1 lunch stop</option><option value="7" selected>7:1 overnight</option><option value="10">10:1 blow coming</option></select></div>
+    </div>
+  </div>
+  <div class="out">
+    <div class="metric"><div class="v" id="o-hull">-</div><div class="k">Hull speed (kn)</div></div>
+    <div class="metric"><div class="v" id="o-cruise">-</div><div class="k">Honest cruise (kn)</div></div>
+    <div class="metric"><div class="v" id="o-passage">-</div><div class="k">Passage days</div></div>
+    <div class="metric"><div class="v" id="o-sad">-</div><div class="k">Sail area / displacement</div></div>
+    <div class="metric"><div class="v" id="o-capsize">-</div><div class="k">Capsize screen</div></div>
+    <div class="metric"><div class="v" id="o-comfort">-</div><div class="k">Comfort ratio</div></div>
+    <div class="metric"><div class="v" id="o-rode">-</div><div class="k">Anchor rode (ft)</div></div>
+    <div class="metric"><div class="v" id="o-reef">-</div><div class="k">First reef at (kn true)</div></div>
+  </div>
+  <p class="note" id="o-verdicts"></p>
+  <p class="note">These are screening formulas from naval-architecture rules of thumb, not a survey. A boat that fails the capsize screen is not unsafe at the dock - it is just not the classic pick for an ocean crossing.</p>
+  <p><a class="back" href="index.html">&larr; Back to SailMath</a></p>
+</main>
+<script src="engine.js"></script>
+<script>
+(function () {
+  var ids = ['lwlFt','loaFt','beamFt','dispLb','sailAreaFt2','nm','hoursPerDay','depthFt','freeboardFt','scope'];
+  function num(id) { var v = parseFloat(document.getElementById(id).value); return isFinite(v) ? v : 0; }
+  function compute() {
+    if (typeof SailMath === 'undefined') return;
+    var lwl = num('lwlFt'), loa = num('loaFt'), beam = num('beamFt'), disp = num('dispLb'), sa = num('sailAreaFt2');
+    var hull = SailMath.hullSpeed(lwl);
+    var cruise = SailMath.cruiseKnots(lwl);
+    var passage = SailMath.passageDays(num('nm'), lwl, num('hoursPerDay'));
+    var sad = SailMath.saDisp(sa, disp);
+    var cap = SailMath.capsizeScreen(beam, disp);
+    var com = SailMath.comfortRatio(disp, loa, lwl, beam);
+    var rode = SailMath.anchorRode(num('depthFt'), num('freeboardFt'), num('scope'));
+    var reef = SailMath.firstReefKnots(sad, com);
+    document.getElementById('o-hull').textContent = hull + ' kn';
+    document.getElementById('o-cruise').textContent = cruise + ' kn';
+    document.getElementById('o-passage').textContent = passage + ' days';
+    document.getElementById('o-sad').textContent = sad;
+    document.getElementById('o-capsize').textContent = cap;
+    document.getElementById('o-comfort').textContent = com;
+    document.getElementById('o-rode').textContent = rode + ' ft';
+    document.getElementById('o-reef').textContent = reef + ' kn';
+    document.getElementById('o-verdicts').textContent =
+      'Canvas: ' + SailMath.saDispVerdict(sad) + '. Capsize: ' + SailMath.capsizeVerdict(cap) +
+      '. Motion: ' + SailMath.comfortVerdict(com) + '. Ground tackle: ' + SailMath.chainVerdict(loa) + '.';
+  }
+  var presets = {
+    daysailor: {lwlFt:21, loaFt:25, beamFt:8, dispLb:3600, sailAreaFt2:260, nm:40, hoursPerDay:8, depthFt:10, freeboardFt:3, scope:5},
+    cruiser: {lwlFt:30, loaFt:34, beamFt:11, dispLb:12000, sailAreaFt2:600, nm:300, hoursPerDay:24, depthFt:15, freeboardFt:5, scope:7},
+    racer: {lwlFt:33, loaFt:36, beamFt:12, dispLb:11000, sailAreaFt2:750, nm:600, hoursPerDay:24, depthFt:18, freeboardFt:5, scope:7},
+    heavy: {lwlFt:34, loaFt:42, beamFt:12.5, dispLb:26000, sailAreaFt2:800, nm:1200, hoursPerDay:24, depthFt:20, freeboardFt:6, scope:7}
+  };
+  Array.prototype.forEach.call(document.querySelectorAll('.presets button'), function (b) {
+    b.addEventListener('click', function () {
+      var p = presets[b.getAttribute('data-p')];
+      if (!p) return;
+      Object.keys(p).forEach(function (k) { document.getElementById(k).value = p[k]; });
+      compute();
+    });
+  });
+  ids.forEach(function (id) {
+    document.getElementById(id).addEventListener('input', compute);
+    document.getElementById(id).addEventListener('change', compute);
+  });
+  compute();
+})();
+</script>
+</body>
+</html>
